@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ECS Demo - Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+
+        .nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .nav a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .nav a:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .nav a.active {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .content h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .content p {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            color: #555;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(52, 152, 219, 0.2);
+        }
+
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .feature p {
+            color: #666;
+            font-size: 1em;
+        }
+
+        .footer {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            color: #7f8c8d;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .nav a {
+                display: block;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 AWS ECS Demo Application</h1>
+            <p>Containerized Nginx running on AWS Fargate</p>
+        </div>
+
+        <nav class="nav">
+            <a href="/" class="active">🏠 Home</a>
+            <a href="/about.html">ℹ️ About</a>
+        </nav>
+
+        <div class="content">
+            <h2>Welcome to Our ECS Demo!</h2>
+            <p>
+                This is a demonstration website running on AWS ECS using Fargate with a custom Nginx container. 
+                The infrastructure is deployed using Terraform and optimized for AWS Free Tier usage.
+            </p>
+            <p>
+                This application showcases modern containerized deployment practices with automatic CI/CD 
+                pipeline using GitHub Actions.
+            </p>
+
+            <div class="features">
+                <div class="feature">
+                    <h3>🐳 Containerized</h3>
+                    <p>Built with Docker using lightweight Alpine Linux base image for optimal performance and security.</p>
+                </div>
+                <div class="feature">
+                    <h3>☁️ Cloud Native</h3>
+                    <p>Deployed on AWS ECS Fargate with Application Load Balancer for high availability and scalability.</p>
+                </div>
+                <div class="feature">
+                    <h3>🔧 Infrastructure as Code</h3>
+                    <p>Complete infrastructure managed with Terraform, ensuring reproducible and version-controlled deployments.</p>
+                </div>
+                <div class="feature">
+                    <h3>🚀 CI/CD Ready</h3>
+                    <p>Automated deployment pipeline with GitHub Actions for continuous integration and deployment.</p>
+                </div>
+                <div class="feature">
+                    <h3>💰 Cost Optimized</h3>
+                    <p>Configured to run within AWS Free Tier limits using minimal resources and smart architecture choices.</p>
+                </div>
+                <div class="feature">
+                    <h3>🔒 Secure</h3>
+                    <p>Includes security headers, health checks, and follows AWS security best practices.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025 ECS Demo Application | Deployed with ❤️ using AWS ECS & Terraform</p>
+        </div>
+    </div>
+</body>
+</html>
