@@ -12,10 +12,10 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: my-app-dev
-  ECS_SERVICE: my-app-dev
+  ECR_REPOSITORY: base-infra-dev
+  ECS_SERVICE: base-infra-dev
   ECS_CLUSTER: base-infra-dev
-  CONTAINER_NAME: my-app
+  CONTAINER_NAME: base-infra
 
 jobs:
   build-and-deploy:
