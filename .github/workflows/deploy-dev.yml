@@ -94,7 +94,7 @@ jobs:
         echo "Deployment completed successfully!"
         
         # Get the service status
-        aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE --query 'services[0].deployments'
+        aws ecs describe-services --cluster $ECS_CLUSTER_DEV --services $ECS_SERVICE_DEV --query 'services[0].deployments'
         
         # Get the load balancer DNS name
         ALB_DNS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `base-infra-dev`)].DNSName' --output text)
@@ -174,7 +174,7 @@ jobs:
         echo "Deployment completed successfully!"
         
         # Get the service status
-        aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE_QA --query 'services[0].deployments'
+        aws ecs describe-services --cluster $ECS_CLUSTER_QA --services $ECS_SERVICE_QA --query 'services[0].deployments'
         
         # Get the load balancer DNS name
         ALB_DNS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `base-infra-qa`)].DNSName' --output text)
