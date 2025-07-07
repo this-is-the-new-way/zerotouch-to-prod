@@ -13,12 +13,16 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: base-infra-dev
-  ECS_SERVICE: base-infra-dev
-  ECS_CLUSTER: base-infra-dev
+  ECS_SERVICE_DEV: base-infra-dev
+  ECS_CLUSTER_DEV: base-infra-dev
+  ECS_SERVICE_QA: base-infra-qa
+  ECS_CLUSTER_QA: base-infra-qa
+  ECS_SERVICE_PROD: base-infra-prod
+  ECS_CLUSTER_PROD: base-infra-prod 
   CONTAINER_NAME: base-infra
 
 jobs:
-  build-and-deploy:
+  build-and-deploy-dev:
     name: Build and Deploy to ECS
     runs-on: ubuntu-latest
     environment: dev
@@ -63,7 +67,7 @@ jobs:
 
     - name: Download current task definition
       run: |
-        aws ecs describe-task-definition --task-definition $ECS_SERVICE --query taskDefinition > task-definition.json
+        aws ecs describe-task-definition --task-definition $ECS_SERVICE_DEV --query taskDefinition > task-definition.json
 
     - name: Update task definition with new image
       id: task-def
@@ -72,13 +76,13 @@ jobs:
         task-definition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
         image: ${{ steps.build-image.outputs.image }}
-
+      
     - name: Deploy to Amazon ECS
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
         task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
+        service: ${{ env.ECS_SERVICE_DEV }}
+        cluster: ${{ env.ECS_CLUSTER_DEV }}
         wait-for-service-stability: true
 
     - name: Verify deployment
@@ -119,3 +123,84 @@ jobs:
         else
           echo "Could not find ALB DNS name for health check"
         fi
+        
+  deploy-qa:
+    name: Build and Deploy to QA
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-dev
+    environment: qa
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Download current task definition
+      run: |
+        aws ecs describe-task-definition --task-definition $ECS_SERVICE_QA --query taskDefinition > task-definition.json
+
+    - name: Update task definition with new image
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ need.build-and-deploy-dev.outputs.image }}
+
+    - name: Deploy to Amazon ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE_QA }}
+        cluster: ${{ env.ECS_CLUSTER_QA }}
+        wait-for-service-stability: true
+
+    - name: Verify deployment
+      run: |
+        echo "Deployment completed successfully!"
+        
+        # Get the service status
+        aws ecs describe-services --cluster $ECS_CLUSTER --services $ECS_SERVICE_QA --query 'services[0].deployments'
+        
+        # Get the load balancer DNS name
+        ALB_DNS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `base-infra-qa`)].DNSName' --output text)
+        
+        if [ ! -z "$ALB_DNS" ]; then
+          echo "Application should be available at: http://$ALB_DNS"
+        fi
+
+    - name: Run health check
+      run: |
+        # Wait a bit for the service to be ready
+        sleep 30
+        
+        # Get ALB DNS name
+        ALB_DNS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `base-infra-qa`)].DNSName' --output text)
+        
+        if [ ! -z "$ALB_DNS" ]; then
+          echo "Running health check against http://$ALB_DNS/health"
+          
+          # Try health check endpoint (retry up to 5 times)
+          for i in {1..5}; do
+            if curl -f -s "http://$ALB_DNS/health"; then
+              echo "Health check passed!"
+              break
+            else
+              echo "Health check attempt $i failed, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+        else
+          echo "Could not find ALB DNS name for health check"
+        fi
+        
