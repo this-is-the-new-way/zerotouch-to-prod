@@ -60,7 +60,7 @@ jobs:
         
         # Build the Docker image
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} .
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outouts.sha}} .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha}} .
         
         # Push both tagged and latest images
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
