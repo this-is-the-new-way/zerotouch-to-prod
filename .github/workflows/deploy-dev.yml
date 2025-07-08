@@ -67,9 +67,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}
         
-    - name: Create short sha tag for image
-      id: image-name
-      run: echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}" >> $GITHUB_OUTPUT
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}" >> $GITHUB_OUTPUT
 
     - name: Download current task definition
       run: |
@@ -81,7 +79,7 @@ jobs:
       with:
         task-definition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.image-name.outputs.image }}
+        image: ${{ steps.build-image.outputs.image }}
       
     - name: Deploy to Amazon ECS
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
@@ -161,7 +159,7 @@ jobs:
       with:
         task-definition: task-definition.json
         container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ needs.build-and-deploy-dev.image-name.outputs.image }}
+        image: ${{ needs.build-and-deploy-dev.build-image.outputs.image }}
 
     - name: Deploy to Amazon ECS
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
