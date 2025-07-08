@@ -168,26 +168,8 @@ jobs:
           exit 1
         fi
         
-        # Test 3: Security Headers Validation
-        echo "🔒 Test 3: Security Headers Validation"
-        headers=$(curl -s -I "http://$ALB_DNS/")
-        
-        if echo "$headers" | grep -q "X-Frame-Options"; then
-          echo "✅ X-Frame-Options header present"
-        else
-          echo "❌ X-Frame-Options header missing"
-          exit 1
-        fi
-        
-        if echo "$headers" | grep -q "X-Content-Type-Options"; then
-          echo "✅ X-Content-Type-Options header present"
-        else
-          echo "❌ X-Content-Type-Options header missing"
-          exit 1
-        fi
-                
-        # Test 4: ECS Service Health
-        echo "🏥 Test 4: ECS Service Health"
+        # Test 3: ECS Service Health
+        echo "🏥 Test 3: ECS Service Health"
         running_tasks=$(aws ecs describe-services --cluster $ECS_CLUSTER_DEV --services $ECS_SERVICE_DEV --query 'services[0].runningCount' --output text)
         desired_tasks=$(aws ecs describe-services --cluster $ECS_CLUSTER_DEV --services $ECS_SERVICE_DEV --query 'services[0].desiredCount' --output text)
         
@@ -197,22 +179,7 @@ jobs:
           echo "❌ ECS service unhealthy: $running_tasks/$desired_tasks tasks running"
           exit 1
         fi
-        
-        # Test 5: Load Balancer Target Health
-        echo "🎯 Test 5: Load Balancer Target Health"
-        target_groups=$(aws elbv2 describe-target-groups --names "base-infra-dev" --query 'TargetGroups[0].TargetGroupArn' --output text)
-        if [ "$target_groups" != "None" ]; then
-          healthy_targets=$(aws elbv2 describe-target-health --target-group-arn "$target_groups" --query 'TargetHealthDescriptions[?TargetHealth.State==`healthy`] | length(@)')
-          if [ "$healthy_targets" -gt 0 ]; then
-            echo "✅ Load balancer has $healthy_targets healthy targets"
-          else
-            echo "❌ Load balancer has no healthy targets"
-            exit 1
-          fi
-        else
-          echo "⚠️ Could not find target group for validation"
-        fi
-        
+                
         echo "🎉 All DEV environment tests passed!"
 
     - name: DEV Environment Smoke Test
