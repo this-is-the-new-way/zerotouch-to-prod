@@ -140,25 +140,25 @@ jobs:
           exit 1
         fi
         
-        echo "🧪 Starting comprehensive testing for DEV environment: $ALB_DNS"
+        echo "🧪 Starting comprehensive testing for DEV environment: $ALB_DNS" > dev-test-results-summary.md       
         
-        # Test 1: Application Content Validation
-        echo "📝 Test 1: Application Content Validation"
+        # Test 1: Application Content Validation >> dev-test-results-summary.md
+        echo "📝 Test 1: Application Content Validation" >> dev-test-results-summary.md
         if curl -s "http://$ALB_DNS/" | grep -q "AWS ECS Demo"; then
-          echo "✅ Home page content validated"
+          echo "✅ Home page content validated" >> dev-test-results-summary.md
         else
-          echo "❌ Home page content missing or incorrect"
+          echo "❌ Home page content missing or incorrect" >> dev-test-results-summary.md
           exit 1
         fi
         
         if curl -s "http://$ALB_DNS/about.html" | grep -q "About"; then
-          echo "✅ About page content validated"
+          echo "✅ About page content validated" >> dev-test-results-summary.md
         else
-          echo "❌ About page content missing or incorrect"
+          echo "❌ About page content missing or incorrect" >> dev-test-results-summary.md
           exit 1
         fi
         
-        # Test 2: Performance Validation
+        # Test 2: Performance Validation >> dev-test-results-summary.md
         echo "⚡ Test 2: Performance Validation"
         response_time=$(curl -o /dev/null -s -w '%{time_total}' "http://$ALB_DNS/")
         if (( $(echo "$response_time < 3.0" | bc -l) )); then
@@ -168,19 +168,19 @@ jobs:
           exit 1
         fi
         
-        # Test 3: ECS Service Health
-        echo "🏥 Test 3: ECS Service Health"
+        # Test 3: ECS Service Health 
+        echo "🏥 Test 3: ECS Service Health" >> dev-test-results-summary.md
         running_tasks=$(aws ecs describe-services --cluster $ECS_CLUSTER_DEV --services $ECS_SERVICE_DEV --query 'services[0].runningCount' --output text)
         desired_tasks=$(aws ecs describe-services --cluster $ECS_CLUSTER_DEV --services $ECS_SERVICE_DEV --query 'services[0].desiredCount' --output text)
         
         if [ "$running_tasks" -eq "$desired_tasks" ] && [ "$running_tasks" -gt 0 ]; then
-          echo "✅ ECS service healthy: $running_tasks/$desired_tasks tasks running"
+          echo "✅ ECS service healthy: $running_tasks/$desired_tasks tasks running" >> dev-test-results-summary.md
         else
-          echo "❌ ECS service unhealthy: $running_tasks/$desired_tasks tasks running"
+          echo "❌ ECS service unhealthy: $running_tasks/$desired_tasks tasks running" >> dev-test-results-summary.md
           exit 1
         fi
                 
-        echo "🎉 All DEV environment tests passed!"
+        echo "🎉 All DEV environment tests passed!" >> dev-test-results-summary.md
 
     - name: DEV Environment Smoke Test
       run: |
@@ -188,25 +188,32 @@ jobs:
         ALB_DNS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `base-infra-dev`)].DNSName' --output text)
         
         if [ ! -z "$ALB_DNS" ]; then
-          echo "🔍 Running smoke test for DEV environment"
+          echo "🔍 Running smoke test for DEV environment" >> dev-test-results-summary.md
           
           # Test critical endpoints
           critical_endpoints=("/" "/about.html" "/health")
           
           for endpoint in "${critical_endpoints[@]}"; do
             if curl -f -s "http://$ALB_DNS$endpoint" > /dev/null; then
-              echo "✅ $endpoint is accessible"
+              echo "✅ $endpoint is accessible" >> dev-test-results-summary.md
             else
-              echo "❌ $endpoint is not accessible"
+              echo "❌ $endpoint is not accessible" >> dev-test-results-summary.md
               exit 1
             fi
           done
           
-          echo "🎯 DEV smoke test completed successfully"
+          echo "🎯 DEV smoke test completed successfully" >> dev-test-results-summary.md
         else
-          echo "❌ Could not find ALB DNS for smoke test"
+          echo "❌ Could not find ALB DNS for smoke test" >> dev-test-results-summary.md
           exit 1
         fi
+    - name: Upload Test Results Summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: dev-test-results-summary
+        path: dev-test-results-summary.md
+        retention-days: 7
+        
   deploy-qa:
     name: Deploy to QA
     runs-on: ubuntu-latest
@@ -684,467 +691,15 @@ jobs:
         
         echo "🎊 All environments validated successfully!"
         echo "🚀 PROD deployment completed and validated!"
-
-  test-results-summary:
-    name: Generate Test Results Summary
+        
+  test-results:
+    name: Test Results
     runs-on: ubuntu-latest
-    needs: [build-and-deploy-dev, deploy-qa, deploy-prod]
-    if: always()
-    
+    needs: [deploy-qa, build-and-deploy-dev, deploy-prod]
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+    - name: Download test results
+      uses: actions/download-artifact@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-
-    - name: Generate Test Results Summary
-      run: |
-        echo "# 🧪 Test Results Summary - $(date)" > test-results-summary.md
-        echo "" >> test-results-summary.md
-        echo "## 📊 Environment Overview" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        # Check each environment status
-        environments=("dev" "qa" "prod")
-        job_names=("build-and-deploy-dev" "deploy-qa" "deploy-prod")
-        
-        for i in "${!environments[@]}"; do
-          env="${environments[$i]}"
-          job_name="${job_names[$i]}"
-          
-          echo "### 🌍 ${env^^} Environment" >> test-results-summary.md
-          echo "" >> test-results-summary.md
-          
-          # Get ALB DNS
-          ALB_DNS=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?contains(LoadBalancerName, \`base-infra-${env}\`)].DNSName" --output text 2>/dev/null || echo "Not found")
-          
-          if [ "$ALB_DNS" != "Not found" ] && [ ! -z "$ALB_DNS" ]; then
-            echo "- **Status:** ✅ HEALTHY" >> test-results-summary.md
-            echo "- **URL:** http://$ALB_DNS" >> test-results-summary.md
-            
-            # Test basic connectivity
-            if curl -f -s "http://$ALB_DNS/health" > /dev/null 2>&1; then
-              echo "- **Health Check:** ✅ PASSING" >> test-results-summary.md
-            else
-              echo "- **Health Check:** ❌ FAILING" >> test-results-summary.md
-            fi
-            
-            # Test content
-            if curl -s "http://$ALB_DNS/" 2>/dev/null | grep -q "AWS ECS Demo"; then
-              echo "- **Content Test:** ✅ PASSING" >> test-results-summary.md
-            else
-              echo "- **Content Test:** ❌ FAILING" >> test-results-summary.md
-            fi
-            
-            # Test performance
-            response_time=$(curl -o /dev/null -s -w '%{time_total}' "http://$ALB_DNS/" 2>/dev/null || echo "0")
-            echo "- **Response Time:** ${response_time}s" >> test-results-summary.md
-            
-            # Get ECS service status
-            running_tasks=$(aws ecs describe-services --cluster base-infra-${env} --services base-infra-${env} --query 'services[0].runningCount' --output text 2>/dev/null || echo "0")
-            desired_tasks=$(aws ecs describe-services --cluster base-infra-${env} --services base-infra-${env} --query 'services[0].desiredCount' --output text 2>/dev/null || echo "0")
-            echo "- **ECS Tasks:** $running_tasks/$desired_tasks running" >> test-results-summary.md
-            
-          else
-            echo "- **Status:** ❌ UNHEALTHY" >> test-results-summary.md
-            echo "- **URL:** Not available" >> test-results-summary.md
-            echo "- **Health Check:** ❌ FAILING" >> test-results-summary.md
-          fi
-          
-          echo "" >> test-results-summary.md
-        done
-        
-        # Add workflow status
-        echo "## 🔄 Workflow Status" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        echo "- **Build & Deploy DEV:** ${{ needs.build-and-deploy-dev.result }}" >> test-results-summary.md
-        echo "- **Deploy QA:** ${{ needs.deploy-qa.result }}" >> test-results-summary.md
-        echo "- **Deploy PROD:** ${{ needs.deploy-prod.result }}" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        # Add environment-specific test results
-        echo "## 🧪 Test Results by Environment" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        echo "### DEV Environment Tests" >> test-results-summary.md
-        echo "- **Content Validation:** ✅ Home page and About page validated" >> test-results-summary.md
-        echo "- **Performance Test:** ✅ Response time < 3.0s" >> test-results-summary.md
-        echo "- **ECS Health:** ✅ Service running with desired task count" >> test-results-summary.md
-        echo "- **Smoke Test:** ✅ Critical endpoints accessible" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        echo "### QA Environment Tests" >> test-results-summary.md
-        echo "- **Content Validation:** ✅ Home page and About page validated" >> test-results-summary.md
-        echo "- **Performance Test:** ✅ Response time < 2.5s" >> test-results-summary.md
-        echo "- **Security Headers:** ✅ All required headers present" >> test-results-summary.md
-        echo "- **Load Test:** ✅ 10 concurrent requests successful" >> test-results-summary.md
-        echo "- **Integration Test:** ✅ User journey validated" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        echo "### PROD Environment Tests" >> test-results-summary.md
-        echo "- **Content Validation:** ✅ Home page and About page validated" >> test-results-summary.md
-        echo "- **Performance Test:** ✅ Average response time < 2.0s" >> test-results-summary.md
-        echo "- **Security Headers:** ✅ Comprehensive security headers present" >> test-results-summary.md
-        echo "- **Production Load Test:** ✅ 20 concurrent requests successful" >> test-results-summary.md
-        echo "- **Business Critical Test:** ✅ Critical business flow validated" >> test-results-summary.md
-        echo "- **Final Validation:** ✅ All environments healthy" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        
-        # Add summary
-        echo "## 📈 Summary" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        echo "- **Total Environments:** 3 (DEV, QA, PROD)" >> test-results-summary.md
-        echo "- **Deployment Status:** All environments deployed successfully" >> test-results-summary.md
-        echo "- **Test Coverage:** Comprehensive testing across all environments" >> test-results-summary.md
-        echo "- **Security:** All environments secured with proper headers" >> test-results-summary.md
-        echo "- **Performance:** All environments meet response time requirements" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        echo "🎯 **Overall Status:** SUCCESS ✅" >> test-results-summary.md
-        echo "" >> test-results-summary.md
-        echo "---" >> test-results-summary.md
-        echo "*Generated on $(date) by GitHub Actions*" >> test-results-summary.md
-        
-        # Display summary to console
-        cat test-results-summary.md
-
-    - name: Generate HTML Dashboard
-      run: |
-        # Create a dynamic HTML dashboard with real data
-        cat > test-results-dashboard.html << 'EOF'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Test Results Dashboard - Zero Touch to Production</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
-                .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); overflow: hidden; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-                .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); }
-                .header p { font-size: 1.2em; opacity: 0.9; }
-                .content { padding: 40px; }
-                .environment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; margin-bottom: 40px; }
-                .environment-card { background: #f8f9fa; border-radius: 12px; padding: 25px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-                .environment-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
-                .environment-card h3 { font-size: 1.5em; margin-bottom: 20px; color: #333; display: flex; align-items: center; gap: 10px; }
-                .env-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
-                .env-dev { background: #e3f2fd; color: #1976d2; }
-                .env-qa { background: #fff3e0; color: #f57c00; }
-                .env-prod { background: #e8f5e8; color: #388e3c; }
-                .test-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
-                .test-item:last-child { border-bottom: none; }
-                .test-name { font-weight: 500; color: #555; }
-                .test-status { padding: 4px 8px; border-radius: 4px; font-size: 0.9em; font-weight: bold; }
-                .status-pass { background: #d4edda; color: #155724; }
-                .status-fail { background: #f8d7da; color: #721c24; }
-                .summary-section { background: #f8f9fa; border-radius: 12px; padding: 30px; margin-top: 40px; }
-                .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-                .summary-card { background: white; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-                .summary-card h4 { color: #666; margin-bottom: 10px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
-                .summary-card .value { font-size: 2em; font-weight: bold; color: #333; }
-                .workflow-status { display: flex; justify-content: center; gap: 20px; margin: 30px 0; }
-                .workflow-item { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-                .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 0.9em; }
-                .url-link { color: #007bff; text-decoration: none; font-family: monospace; font-size: 0.9em; }
-                .url-link:hover { text-decoration: underline; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🧪 Test Results Dashboard</h1>
-                    <p>Zero Touch to Production - Multi-Environment Deployment</p>
-                </div>
-                <div class="content">
-                    <div class="environment-grid">
-        EOF
-        
-        # Add environment cards with real data
-        environments=("dev" "qa" "prod")
-        env_names=("Development Environment" "Quality Assurance Environment" "Production Environment")
-        env_classes=("env-dev" "env-qa" "env-prod")
-        
-        for i in "${!environments[@]}"; do
-          env="${environments[$i]}"
-          env_name="${env_names[$i]}"
-          env_class="${env_classes[$i]}"
-          
-          # Get real ALB DNS
-          ALB_DNS=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?contains(LoadBalancerName, \`base-infra-${env}\`)].DNSName" --output text 2>/dev/null || echo "Not available")
-          
-          # Check health status
-          health_status="❌ FAILING"
-          if [ "$ALB_DNS" != "Not available" ] && [ ! -z "$ALB_DNS" ]; then
-            if curl -f -s "http://$ALB_DNS/health" > /dev/null 2>&1; then
-              health_status="✅ PASSING"
-            fi
-          fi
-          
-          cat >> test-results-dashboard.html << EOF
-                        <div class="environment-card">
-                            <h3>
-                                <span class="env-badge $env_class">${env^^}</span>
-                                $env_name
-                            </h3>
-                            <div class="test-item">
-                                <span class="test-name">Health Check</span>
-                                <span class="test-status $([ "$health_status" = "✅ PASSING" ] && echo "status-pass" || echo "status-fail")">$health_status</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Content Validation</span>
-                                <span class="test-status status-pass">✅ PASSING</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Performance Test</span>
-                                <span class="test-status status-pass">✅ PASSING</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Application URL</span>
-                                <a href="http://$ALB_DNS" class="url-link" target="_blank">$ALB_DNS</a>
-                            </div>
-                        </div>
-        EOF
-        done
-        
-        # Add the rest of the HTML
-        cat >> test-results-dashboard.html << 'EOF'
-                    </div>
-                    <div class="summary-section">
-                        <h3 style="text-align: center; margin-bottom: 30px; color: #333;">🔄 Workflow Status</h3>
-                        <div class="workflow-status">
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Build & Deploy DEV</span>
-                            </div>
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Deploy QA</span>
-                            </div>
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Deploy PROD</span>
-                            </div>
-                        </div>
-                        <h3 style="text-align: center; margin: 40px 0 30px 0; color: #333;">📊 Summary Statistics</h3>
-                        <div class="summary-grid">
-                            <div class="summary-card">
-                                <h4>Total Environments</h4>
-                                <div class="value">3</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Total Tests</h4>
-                                <div class="value">18</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Passing Tests</h4>
-                                <div class="value" style="color: #28a745;">18</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Success Rate</h4>
-                                <div class="value" style="color: #28a745;">100%</div>
-                            </div>
-                        </div>
-                        <div style="text-align: center; margin-top: 30px;">
-                            <div style="font-size: 1.5em; color: #28a745; font-weight: bold;">
-                                🎯 Overall Status: SUCCESS ✅
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="footer">
-                    <p>Last updated: $(date)</p>
-                    <p>Generated by GitHub Actions - Zero Touch to Production Pipeline</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        EOF
-
-    - name: Upload Test Results Summary
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-summary
-        path: test-results-summary.md
-        retention-days: 30
-
-    - name: Generate HTML Dashboard
-      run: |
-        # Create a dynamic HTML dashboard with real data
-        cat > test-results-dashboard.html << 'EOF'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Test Results Dashboard - Zero Touch to Production</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
-                .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); overflow: hidden; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-                .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); }
-                .header p { font-size: 1.2em; opacity: 0.9; }
-                .content { padding: 40px; }
-                .environment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; margin-bottom: 40px; }
-                .environment-card { background: #f8f9fa; border-radius: 12px; padding: 25px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-                .environment-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
-                .environment-card h3 { font-size: 1.5em; margin-bottom: 20px; color: #333; display: flex; align-items: center; gap: 10px; }
-                .env-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
-                .env-dev { background: #e3f2fd; color: #1976d2; }
-                .env-qa { background: #fff3e0; color: #f57c00; }
-                .env-prod { background: #e8f5e8; color: #388e3c; }
-                .test-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
-                .test-item:last-child { border-bottom: none; }
-                .test-name { font-weight: 500; color: #555; }
-                .test-status { padding: 4px 8px; border-radius: 4px; font-size: 0.9em; font-weight: bold; }
-                .status-pass { background: #d4edda; color: #155724; }
-                .status-fail { background: #f8d7da; color: #721c24; }
-                .summary-section { background: #f8f9fa; border-radius: 12px; padding: 30px; margin-top: 40px; }
-                .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-                .summary-card { background: white; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-                .summary-card h4 { color: #666; margin-bottom: 10px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
-                .summary-card .value { font-size: 2em; font-weight: bold; color: #333; }
-                .workflow-status { display: flex; justify-content: center; gap: 20px; margin: 30px 0; }
-                .workflow-item { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-                .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 0.9em; }
-                .url-link { color: #007bff; text-decoration: none; font-family: monospace; font-size: 0.9em; }
-                .url-link:hover { text-decoration: underline; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🧪 Test Results Dashboard</h1>
-                    <p>Zero Touch to Production - Multi-Environment Deployment</p>
-                </div>
-                <div class="content">
-                    <div class="environment-grid">
-        EOF
-        
-        # Add environment cards with real data
-        environments=("dev" "qa" "prod")
-        env_names=("Development Environment" "Quality Assurance Environment" "Production Environment")
-        env_classes=("env-dev" "env-qa" "env-prod")
-        
-        for i in "${!environments[@]}"; do
-          env="${environments[$i]}"
-          env_name="${env_names[$i]}"
-          env_class="${env_classes[$i]}"
-          
-          # Get real ALB DNS
-          ALB_DNS=$(aws elbv2 describe-load-balancers --query "LoadBalancers[?contains(LoadBalancerName, \`base-infra-${env}\`)].DNSName" --output text 2>/dev/null || echo "Not available")
-          
-          # Check health status
-          health_status="❌ FAILING"
-          if [ "$ALB_DNS" != "Not available" ] && [ ! -z "$ALB_DNS" ]; then
-            if curl -f -s "http://$ALB_DNS/health" > /dev/null 2>&1; then
-              health_status="✅ PASSING"
-            fi
-          fi
-          
-          cat >> test-results-dashboard.html << EOF
-                        <div class="environment-card">
-                            <h3>
-                                <span class="env-badge $env_class">${env^^}</span>
-                                $env_name
-                            </h3>
-                            <div class="test-item">
-                                <span class="test-name">Health Check</span>
-                                <span class="test-status $([ "$health_status" = "✅ PASSING" ] && echo "status-pass" || echo "status-fail")">$health_status</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Content Validation</span>
-                                <span class="test-status status-pass">✅ PASSING</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Performance Test</span>
-                                <span class="test-status status-pass">✅ PASSING</span>
-                            </div>
-                            <div class="test-item">
-                                <span class="test-name">Application URL</span>
-                                <a href="http://$ALB_DNS" class="url-link" target="_blank">$ALB_DNS</a>
-                            </div>
-                        </div>
-        EOF
-        done
-        
-        # Add the rest of the HTML
-        cat >> test-results-dashboard.html << 'EOF'
-                    </div>
-                    <div class="summary-section">
-                        <h3 style="text-align: center; margin-bottom: 30px; color: #333;">🔄 Workflow Status</h3>
-                        <div class="workflow-status">
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Build & Deploy DEV</span>
-                            </div>
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Deploy QA</span>
-                            </div>
-                            <div class="workflow-item">
-                                <span class="status-icon">✅</span>
-                                <span>Deploy PROD</span>
-                            </div>
-                        </div>
-                        <h3 style="text-align: center; margin: 40px 0 30px 0; color: #333;">📊 Summary Statistics</h3>
-                        <div class="summary-grid">
-                            <div class="summary-card">
-                                <h4>Total Environments</h4>
-                                <div class="value">3</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Total Tests</h4>
-                                <div class="value">18</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Passing Tests</h4>
-                                <div class="value" style="color: #28a745;">18</div>
-                            </div>
-                            <div class="summary-card">
-                                <h4>Success Rate</h4>
-                                <div class="value" style="color: #28a745;">100%</div>
-                            </div>
-                        </div>
-                        <div style="text-align: center; margin-top: 30px;">
-                            <div style="font-size: 1.5em; color: #28a745; font-weight: bold;">
-                                🎯 Overall Status: SUCCESS ✅
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="footer">
-                    <p>Last updated: $(date)</p>
-                    <p>Generated by GitHub Actions - Zero Touch to Production Pipeline</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        EOF
-
-    - name: Upload Test Results Summary
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-summary
-        path: |
-          test-results-summary.md
-          test-results-dashboard.html
-        retention-days: 30
-
-    - name: Add Summary to GitHub Step Summary
-      run: |
-        echo "# 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        cat test-results-summary.md >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 📊 Interactive Dashboard" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "An interactive HTML dashboard has been generated and uploaded as an artifact." >> $GITHUB_STEP_SUMMARY
-        echo "Download the \`test-results-summary\` artifact to view the complete dashboard." >> $GITHUB_STEP_SUMMARY
+        name: dev-test-results-summary        
+      
+    
