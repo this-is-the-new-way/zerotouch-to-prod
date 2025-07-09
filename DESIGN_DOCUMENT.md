@@ -1,4 +1,4 @@
-# ZeroTouch-to-Prod - Simple Design Document
+# ZeroTouch-to-Prod
 
 ## 📋 **Overview**
 
