@@ -148,8 +148,10 @@ jobs:
         echo "📝 Test 1: Application Content Validation" >> dev-test-results-summary.md
         if curl -s "http://$ALB_DNS/" | grep -q "AWS ECS Demo"; then
           echo "✅ Home page content validated" >> dev-test-results-summary.md
+          echo "✅ Test 1: Application Content Validation - Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Home page content missing or incorrect" >> dev-test-results-summary.md
+          echo "❌ Test 1: Application Content Validation - Failed" >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
         
@@ -205,8 +207,10 @@ jobs:
           done
           
           echo "🎯 DEV smoke test completed successfully" >> dev-test-results-summary.md
+          echo "🎯 DEV smoke test result - Passed" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Could not find ALB DNS for smoke test" >> dev-test-results-summary.md
+          echo "❌ DEV smoke test result - Failed" >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
     - name: Upload Test Results Summary
