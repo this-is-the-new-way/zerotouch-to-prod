@@ -71,7 +71,8 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}
         
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}" >> $GITHUB_OUTPUT
-
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.short-sha.outputs.sha }}" >> $GITHUB_STEP_SUMMARY
+    
     - name: Download current task definition
       run: |
         aws ecs describe-task-definition --task-definition $ECS_SERVICE_DEV --query taskDefinition > task-definition.json
